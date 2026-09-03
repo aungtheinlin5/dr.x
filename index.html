@@ -353,7 +353,7 @@
   <div>
     <h1 id="headerTitle">Dr.X</h1>
   </div>
-  <button class="back-btn" id="backBtn" onclick="showGrid()">← နောက်သို့</button>
+  <button class="back-btn" id="backBtn" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); showGrid()">← နောက်သို့</button>
 </header>
 
 <main>
@@ -384,7 +384,30 @@
 
 </main>
 
-<!-- Popunder Ad -->
+<!-- Popunder is loaded once, but the back button is blocked from reaching it. -->
+<script>
+(function(){
+  function isBackButtonEvent(event){
+    return event.target && event.target.closest && event.target.closest('#backBtn');
+  }
+
+  // Register before the ad script so back-button events never reach the ad provider.
+  window.addEventListener('pointerdown', function(event){
+    if(isBackButtonEvent(event)){
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+
+  window.addEventListener('click', function(event){
+    if(isBackButtonEvent(event)){
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showGrid();
+    }
+  }, true);
+})();
+</script>
 <script src="https://pl31020597.profitableratecpmnetwork.com/c3/d5/4d/c3d54d8836f0968e6409d5d4aa221046.js"></script>
 
 <script>
