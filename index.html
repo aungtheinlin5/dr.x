@@ -168,6 +168,86 @@
     font-size:14px;
   }
 
+  .pagination{
+    position:sticky;
+    top:0;
+    z-index:9;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:6px;
+    padding:8px 4px 14px;
+    margin:0 -14px 6px;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    background:rgba(12,14,18,.92);
+    backdrop-filter:blur(10px);
+  }
+  .pagination::-webkit-scrollbar{display:none;}
+  .page-btn{
+    flex:0 0 auto;
+    min-width:32px;
+    height:32px;
+    padding:0 8px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--text);
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:border-color .15s, background .15s;
+  }
+  .page-btn:hover{border-color:var(--accent);}
+  .page-btn.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#12070a;
+  }
+  .page-btn:disabled{
+    opacity:.35;
+    cursor:not-allowed;
+  }
+  .page-dots{
+    flex:0 0 auto;
+    color:var(--muted);
+    font-size:13px;
+    padding:0 2px;
+  }
+  .pagination-bottom{
+    position:static;
+    top:auto;
+    margin:20px -14px 0;
+    padding:16px 4px 4px;
+    background:transparent;
+    backdrop-filter:none;
+    border-top:1px solid var(--line);
+  }
+  @media(min-width:560px){
+    .pagination{
+      gap:8px;
+      padding:10px 0 16px;
+      margin:0 0 6px;
+      flex-wrap:wrap;
+      overflow-x:visible;
+    }
+    .page-btn{
+      min-width:36px;
+      height:36px;
+      padding:0 10px;
+      font-size:13px;
+    }
+    .pagination-bottom{
+      margin:26px 0 0;
+      padding:20px 0 0;
+    }
+  }
+
   /* Skeleton loading */
   .skeleton-card{
     background:var(--panel);
@@ -228,6 +308,43 @@
     .player-title{font-size:21px; margin:20px 0 6px;}
     .player-date{font-size:13px;}
   }
+
+  /* Related videos */
+  .related-heading{
+    font-size:14px;
+    font-weight:800;
+    letter-spacing:.02em;
+    margin:26px 0 12px;
+    padding-top:16px;
+    border-top:1px solid var(--line);
+    color:var(--text);
+  }
+  @media(min-width:560px){
+    .related-heading{font-size:16px; margin:32px 0 14px;}
+  }
+  #relatedGrid.grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:12px;
+  }
+  @media(min-width:560px){
+    #relatedGrid.grid{
+      grid-template-columns:repeat(3, 1fr);
+      gap:16px;
+    }
+  }
+  @media(min-width:820px){
+    #relatedGrid.grid{
+      grid-template-columns:repeat(4, 1fr);
+      gap:18px;
+    }
+  }
+  @media(min-width:1100px){
+    #relatedGrid.grid{
+      grid-template-columns:repeat(5, 1fr);
+      gap:20px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -242,6 +359,7 @@
 <main>
 
   <div id="gridView">
+    <div id="pagination" class="pagination"></div>
     <div id="videoGrid" class="grid">
       <div class="skeleton-card"><div class="skeleton-thumb"></div><div class="skeleton-lines"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
       <div class="skeleton-card"><div class="skeleton-thumb"></div><div class="skeleton-lines"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
@@ -250,6 +368,7 @@
       <div class="skeleton-card"><div class="skeleton-thumb"></div><div class="skeleton-lines"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
       <div class="skeleton-card"><div class="skeleton-thumb"></div><div class="skeleton-lines"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
     </div>
+    <div id="paginationBottom" class="pagination pagination-bottom"></div>
   </div>
 
   <div id="playerView">
@@ -258,22 +377,25 @@
     </div>
     <div class="player-title" id="playerTitle"></div>
     <div class="player-date" id="playerDate"></div>
+
+    <div class="related-heading">ဆက်စပ် Video များ</div>
+    <div id="relatedGrid" class="grid"></div>
   </div>
 
 </main>
 
-<!-- Popunder Ad -->
-<script src="https://pl31020597.profitableratecpmnetwork.com/c3/d5/4d/c3d54d8836f0968e6409d5d4aa221046.js"></script>
-
 <script>
 // ============ CONFIG ============
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLlUUObz3RbWBnlaC50kLDfage6mDFNjljP4XI-0dYHAwFwm1EH4nCw84-lkbr3acQ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbytN8k3DZ-kE40iBpwfHgowMt2jFFXmDOqHgB_jDfTeoEMVfI_lafDA5G1r7Wg8PeH-/exec";
 // =================================
 
 let videos = [];
+let currentPage = 1;
+const PAGE_SIZE = 15;
 
 async function loadVideos(){
   const gridEl = document.getElementById('videoGrid');
+  const pagEl = document.getElementById('pagination');
   try{
     const res = await fetch(SCRIPT_URL + "?action=list");
     const data = await res.json();
@@ -281,12 +403,143 @@ async function loadVideos(){
     if(!data.success || data.videos.length === 0){
       gridEl.className = "empty";
       gridEl.innerHTML = "Video များ မရှိသေးပါ";
+      pagEl.innerHTML = "";
       return;
     }
 
     videos = data.videos;
     gridEl.className = "grid";
-    gridEl.innerHTML = videos.map((v, i) => `
+    renderPage(1);
+  } catch(err){
+    gridEl.className = "empty";
+    gridEl.innerHTML = "Data ရယူရာတွင် အမှားရှိသည်။ SCRIPT_URL ကိုစစ်ဆေးပါ";
+    pagEl.innerHTML = "";
+  }
+}
+
+function renderPage(page){
+  currentPage = page;
+  const gridEl = document.getElementById('videoGrid');
+  const totalPages = Math.ceil(videos.length / PAGE_SIZE);
+  const start = (page - 1) * PAGE_SIZE;
+  const pageVideos = videos.slice(start, start + PAGE_SIZE);
+
+  gridEl.innerHTML = pageVideos.map((v) => {
+    const realIndex = videos.indexOf(v);
+    return `
+      <div class="card" onclick="playVideo(${realIndex})">
+        <div class="thumb-wrap">
+          <img src="${v.thumbnailLink}" loading="lazy" onerror="this.src='https://via.placeholder.com/400x225/1b1f27/8b93a1?text=No+Image'">
+          <div class="play-badge">
+            <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <div class="card-info">
+          <div class="t">${escapeHtml(v.title)}</div>
+          <div class="d">${new Date(v.dateAdded).toLocaleDateString()}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  renderPagination(page, totalPages);
+  positionPagination();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderPagination(page, totalPages){
+  const pagEl = document.getElementById('pagination');
+  const pagBottomEl = document.getElementById('paginationBottom');
+  if(totalPages <= 1){
+    pagEl.innerHTML = "";
+    if(pagBottomEl) pagBottomEl.innerHTML = "";
+    return;
+  }
+
+  // Estimate how many numbered buttons fit on screen, then show a
+  // continuous run starting at 1 (1,2,3,4... not 1 ... x-1,x,x+1 ... n).
+  const btnSpace = window.innerWidth < 560 ? 34 : 44;
+  const reserved = 2 * (window.innerWidth < 560 ? 34 : 44) + 40; // prev/next + dots/margins
+  const available = Math.max(window.innerWidth - reserved, btnSpace * 3);
+  let maxVisible = Math.max(3, Math.floor(available / btnSpace));
+  maxVisible = Math.min(maxVisible, totalPages);
+
+  // Keep the current page within the visible run, sliding the window
+  // forward as the user pages deeper, but always start from 1 when possible.
+  let startPage = 1;
+  if(page > maxVisible){
+    startPage = Math.min(page - maxVisible + 1, totalPages - maxVisible + 1);
+  }
+  const endPage = Math.min(startPage + maxVisible - 1, totalPages);
+
+  let html = `<button class="page-btn" ${page === 1 ? "disabled" : ""} onclick="renderPage(${page - 1})">‹</button>`;
+
+  if(startPage > 1){
+    html += `<button class="page-btn" onclick="renderPage(1)">1</button>`;
+    if(startPage > 2) html += `<span class="page-dots">…</span>`;
+  }
+
+  for(let p = startPage; p <= endPage; p++){
+    html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="renderPage(${p})">${p}</button>`;
+  }
+
+  if(endPage < totalPages){
+    if(endPage < totalPages - 1) html += `<span class="page-dots">…</span>`;
+    html += `<button class="page-btn" onclick="renderPage(${totalPages})">${totalPages}</button>`;
+  }
+
+  html += `<button class="page-btn" ${page === totalPages ? "disabled" : ""} onclick="renderPage(${page + 1})">›</button>`;
+
+  pagEl.innerHTML = html;
+  if(pagBottomEl) pagBottomEl.innerHTML = html;
+}
+
+function toEmbedUrl(link){
+  // Mux stream URLs (https://stream.mux.com/PLAYBACK_ID.m3u8) can't play
+  // directly in a plain <iframe>, so point to Mux's own embeddable player.
+  const muxMatch = link.match(/stream\.mux\.com\/([^.\/]+)\.m3u8/);
+  if(muxMatch){
+    return "https://player.mux.com/" + muxMatch[1];
+  }
+  return link;
+}
+
+function playVideo(index){
+  const v = videos[index];
+  document.getElementById('playerFrame').src = toEmbedUrl(v.videoLink);
+  document.getElementById('playerTitle').textContent = v.title;
+  document.getElementById('playerDate').textContent = new Date(v.dateAdded).toLocaleString();
+
+  document.getElementById('gridView').style.display = "none";
+  document.getElementById('playerView').style.display = "block";
+  document.getElementById('backBtn').style.display = "inline-block";
+  document.getElementById('headerTitle').textContent = "ပြသနေသည်";
+  renderRelated(index);
+  window.scrollTo(0,0);
+}
+
+function renderRelated(currentIndex){
+  const relEl = document.getElementById('relatedGrid');
+  if(!relEl) return;
+
+  // Build a pool of all video indices except the one currently playing.
+  const pool = videos.map((_, i) => i).filter(i => i !== currentIndex);
+
+  // Shuffle the pool (Fisher–Yates) and take up to 10.
+  for(let i = pool.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const pick = pool.slice(0, 10);
+
+  if(pick.length === 0){
+    relEl.innerHTML = "";
+    return;
+  }
+
+  relEl.innerHTML = pick.map((i) => {
+    const v = videos[i];
+    return `
       <div class="card" onclick="playVideo(${i})">
         <div class="thumb-wrap">
           <img src="${v.thumbnailLink}" loading="lazy" onerror="this.src='https://via.placeholder.com/400x225/1b1f27/8b93a1?text=No+Image'">
@@ -299,24 +552,8 @@ async function loadVideos(){
           <div class="d">${new Date(v.dateAdded).toLocaleDateString()}</div>
         </div>
       </div>
-    `).join('');
-  } catch(err){
-    gridEl.className = "empty";
-    gridEl.innerHTML = "Data ရယူရာတွင် အမှားရှိသည်။ SCRIPT_URL ကိုစစ်ဆေးပါ";
-  }
-}
-
-function playVideo(index){
-  const v = videos[index];
-  document.getElementById('playerFrame').src = v.videoLink;
-  document.getElementById('playerTitle').textContent = v.title;
-  document.getElementById('playerDate').textContent = new Date(v.dateAdded).toLocaleString();
-
-  document.getElementById('gridView').style.display = "none";
-  document.getElementById('playerView').style.display = "block";
-  document.getElementById('backBtn').style.display = "inline-block";
-  document.getElementById('headerTitle').textContent = "ပြသနေသည်";
-  window.scrollTo(0,0);
+    `;
+  }).join('');
 }
 
 function showGrid(){
@@ -332,6 +569,19 @@ function escapeHtml(str){
   div.textContent = str;
   return div.innerHTML;
 }
+
+function positionPagination(){
+  const header = document.querySelector('header');
+  const pagEl = document.getElementById('pagination');
+  if(header && pagEl){
+    pagEl.style.top = header.offsetHeight + "px";
+  }
+}
+window.addEventListener('resize', () => {
+  positionPagination();
+  if(videos.length) renderPagination(currentPage, Math.ceil(videos.length / PAGE_SIZE));
+});
+positionPagination();
 
 loadVideos();
 </script>
